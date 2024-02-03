@@ -1,6 +1,6 @@
-import mongoose from 'mongoose';
+const mongoose=require('mongoose');
 
-export const dbConnect=async ()=>{
+const dbConnect=async ()=>{
     try{
         mongoose.connect('mongodb://127.0.0.1:27017/project')
     }
@@ -8,3 +8,5 @@ export const dbConnect=async ()=>{
         console.log('err',err);
     }
 }
+
+module.exports = { dbConnect };

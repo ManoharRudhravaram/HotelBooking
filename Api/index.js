@@ -1,12 +1,15 @@
-import express, { json } from "express";
-import cors from 'cors';
-import mongoose from "mongoose";
-import 'dotenv/config'
-import User from './models/user.js'
-import bcrypt from 'bcryptjs'
-import { dbConnect } from "./DB/db.js";
-import jwt from 'jsonwebtoken';
-import cookieParser from "cookie-parser";
+const express = require('express');
+const cors = require('cors');
+const mongoose = require("mongoose");
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const User = require('./models/user.js');
+const Place = require('./models/Place.js');
+const cookieParser = require('cookie-parser');
+const imageDownloader = require('image-downloader');
+const { dbConnect } = require('./DB/db.js');
+const multer = require('multer')
+const fs = require('fs');
 //DNhemTAHoLChhCYz pass
 
 const PORT = 4000;
@@ -17,26 +20,22 @@ const jwtSecret = 'poiuytrewq';
 const app = express();
 app.use(express.json());
 app.use(cookieParser())
+app.use('/uploads', express.static(__dirname + '/uploads'))
 app.use(cors())
 
 app.get('/test', (req, res) => {
     res.json('test start')
 });
 
-// console.log(process.env.MONGO_URL);
-// mongoose.connect(process.env.MONGO_URL);
 app.post('/register', async (req, res) => {
     let result = await req.body;
     let { name, email, password } = await result.data;
-    // res.send('got data')
     try {
         const userDoc = await User.create({
             name,
             password: bcrypt.hashSync(password, bcryptSalt),
             email
         })
-        // res.send(userDoc)
-        console.log(userDoc, 'userDoc');
         res.json(userDoc)
     }
     catch (err) {
@@ -73,8 +72,8 @@ app.get('/profile', (req, res) => {
     if (token) {
         jwt.verify(token, jwtSecret, {}, async (err, userData) => {
             if (err) throw err
-            const {name,email,_id}= await User.findById(userData.id)
-            res.json({name, email ,_id})
+            const { name, email, _id } = await User.findById(userData.id)
+            res.json({ name, email, _id })
         })
     }
     else {
@@ -82,8 +81,34 @@ app.get('/profile', (req, res) => {
     }
 })
 
-app.post('/logout',(req,res)=>{
-    res.cookie('token','').json(true)
+app.post('/logout', (req, res) => {
+    res.cookie('token', '').json(true)
+})
+
+app.post('/upload-by-link', async (req, res) => {
+    let { link } = req.body;
+    console.log(link);
+    const newName = 'photo' + Date.now() + '.jpg'
+    console.log(newName);
+    await imageDownloader.image({
+        url: link,
+        dest: __dirname + '/uploads/' + newName
+    })
+    res.json(newName)
+})
+
+const photosMiddleWare = multer({ dest: 'uploads/' });
+app.post('/upload', photosMiddleWare.array('photos', 100), (req, res) => {
+    const uploadedFiles = [];
+    for (let i = 0; i <= req.files.length-1; i++) {
+        const { path, originalname } = req.files[i];
+        const parts = originalname.split('.');
+        const ext = parts[parts.length - 1];
+        const newpath = path + '.' + ext;
+        fs.renameSync(path, newpath);
+        uploadedFiles.push(newpath.replace('uploads', ''));
+    }
+    res.json(uploadedFiles);
 })
 
 app.listen(PORT, portName, async () => {
